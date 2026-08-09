@@ -1,5 +1,5 @@
 {
-    "name": "zana/ddd",
+    "name": "mj-zana/ddd",
     "description": "Domain-Driven Design building blocks for Zana applications",
     "type": "library",
     "keywords": ["zana", "ddd", "domain", "cqrs", "entity", "aggregate", "value-object"],
@@ -23,4 +23,3 @@
     "minimum-stability": "dev",
     "prefer-stable": true
 }
-
