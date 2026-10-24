@@ -5,46 +5,28 @@ declare(strict_types=1);
 namespace Zana\Ddd\Domain;
 
 /**
- * Base class for Domain Entities.
- * 
- * Entities have identity that persists across changes.
- * Two entities with the same identity are considered equal,
- * even if their properties differ.
+ * Base class for domain entities.
+ *
+ * Entities have an identity that persists across changes: two entities of the
+ * same class with the same id are equal, whatever their other state.
  */
 abstract class Entity
 {
-    /**
-     * The unique identifier of this entity.
-     *
-     * @var mixed
-     */
-    protected mixed $id;
-
-    /**
-     * @var array<int, DomainEvent> Events raised by this entity
-     */
+    /** @var list<DomainEvent> */
     private array $domainEvents = [];
 
-    /**
-     * @param mixed $id The unique identifier
-     */
-    public function __construct(mixed $id = null)
+    public function __construct(protected mixed $id = null)
     {
-        $this->id = $id;
     }
 
-    /**
-     * Get the entity's identifier.
-     *
-     * @return mixed
-     */
     public function getId(): mixed
     {
         return $this->id;
     }
 
     /**
-     * Entities are compared by identity.
+     * Equal when both have the same class and id. Without an id on either
+     * side, only the same instance is equal.
      */
     public function equals(self $other): bool
     {
@@ -52,35 +34,37 @@ abstract class Entity
             return $this === $other;
         }
 
-        return static::class === $other::class && $this->id === $other->id;
+        if (static::class !== $other::class) {
+            return false;
+        }
+
+        if ($this->id instanceof Identity && $other->id instanceof Identity) {
+            return $this->id->equals($other->id);
+        }
+
+        return $this->id === $other->id;
     }
 
     /**
-     * Record a domain event.
-     */
-    protected function recordEvent(DomainEvent $event): void
-    {
-        $this->domainEvents[] = $event;
-    }
-
-    /**
-     * Get and clear all recorded domain events.
+     * Return and clear the domain events recorded since the last call.
      *
-     * @return array<int, DomainEvent>
+     * @return list<DomainEvent>
      */
     public function releaseEvents(): array
     {
         $events = $this->domainEvents;
         $this->domainEvents = [];
+
         return $events;
     }
 
-    /**
-     * Clear all recorded domain events without releasing them.
-     */
     public function clearEvents(): void
     {
         $this->domainEvents = [];
     }
-}
 
+    protected function recordEvent(DomainEvent $event): void
+    {
+        $this->domainEvents[] = $event;
+    }
+}

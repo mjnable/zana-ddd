@@ -1,96 +1,64 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Zana\Ddd\Tests\Domain;
 
 use PHPUnit\Framework\TestCase;
-use Zana\Ddd\Domain\Entity;
-use Zana\Ddd\Domain\DomainEvent;
+use Zana\Ddd\Tests\Doctor;
+use Zana\Ddd\Tests\Patient;
+use Zana\Ddd\Tests\PatientId;
+use Zana\Ddd\Tests\PatientRegistered;
 
-class EntityTest extends TestCase
+final class EntityTest extends TestCase
 {
-    public function testEntityWithNullIdUsesReferenceEquality(): void
+    public function testEntitiesWithTheSameClassAndIdAreEqual(): void
     {
-        $entity1 = new TestEntity();
-        $entity2 = new TestEntity();
+        $id = PatientId::generate();
 
-        $this->assertTrue($entity1->equals($entity1));
-        $this->assertFalse($entity1->equals($entity2));
+        $this->assertTrue(new Patient($id)->equals(new Patient(PatientId::fromString((string) $id))));
+        $this->assertTrue(new Patient(7)->equals(new Patient(7)));
+        $this->assertFalse(new Patient(7)->equals(new Patient(8)));
+        $this->assertFalse(new Patient(7)->equals(new Doctor(7)), 'different classes');
     }
 
-    public function testEntitiesWithSameIdAreEqual(): void
+    public function testEntitiesWithoutIdAreOnlyEqualToThemselves(): void
     {
-        $entity1 = new TestEntity('id-1');
-        $entity2 = new TestEntity('id-1');
+        $patient = new Patient();
 
-        $this->assertTrue($entity1->equals($entity2));
+        $this->assertTrue($patient->equals($patient));
+        $this->assertFalse($patient->equals(new Patient()));
+        $this->assertFalse($patient->equals(new Patient(1)));
+        $this->assertNull($patient->getId());
     }
 
-    public function testEntitiesWithDifferentIdsAreNotEqual(): void
+    public function testRecordedEventsAreReleasedOnce(): void
     {
-        $entity1 = new TestEntity('id-1');
-        $entity2 = new TestEntity('id-2');
+        $patient = Patient::register(PatientId::generate(), 'Ada');
 
-        $this->assertFalse($entity1->equals($entity2));
-    }
-
-    public function testEntitiesOfDifferentClassesWithSameIdAreNotEqual(): void
-    {
-        $entity1 = new TestEntity('id-1');
-        $entity2 = new OtherTestEntity('id-1');
-
-        $this->assertFalse($entity1->equals($entity2));
-    }
-
-    public function testGetId(): void
-    {
-        $entity = new TestEntity('custom-id');
-        $this->assertEquals('custom-id', $entity->getId());
-    }
-
-    public function testRecordAndReleaseEvents(): void
-    {
-        $entity = new TestEntity();
-        $event = new EntityTestDomainEvent();
-        $entity->raiseEvent($event);
-
-        $events = $entity->releaseEvents();
+        $events = $patient->releaseEvents();
 
         $this->assertCount(1, $events);
-        $this->assertSame($event, $events[0]);
+        $this->assertInstanceOf(PatientRegistered::class, $events[0]);
+        $this->assertSame([], $patient->releaseEvents());
     }
 
-    public function testReleaseEventsClearsEvents(): void
+    public function testEventsCanBeCleared(): void
     {
-        $entity = new TestEntity();
-        $entity->raiseEvent(new EntityTestDomainEvent());
-        $entity->releaseEvents();
+        $patient = Patient::register(PatientId::generate(), 'Ada');
+        $patient->clearEvents();
 
-        $this->assertEmpty($entity->releaseEvents());
+        $this->assertSame([], $patient->releaseEvents());
     }
 
-    public function testClearEvents(): void
+    public function testAggregateVersionIncrements(): void
     {
-        $entity = new TestEntity();
-        $entity->raiseEvent(new EntityTestDomainEvent());
-        $entity->clearEvents();
+        $patient = new Patient(1);
+        $this->assertSame(0, $patient->getVersion());
 
-        $this->assertEmpty($entity->releaseEvents());
+        $patient->incrementVersion();
+        $patient->incrementVersion();
+
+        $this->assertSame(2, $patient->getVersion());
     }
-}
-
-class TestEntity extends Entity
-{
-    public function raiseEvent(DomainEvent $event): void
-    {
-        $this->recordEvent($event);
-    }
-}
-
-class OtherTestEntity extends Entity
-{
-}
-
-class EntityTestDomainEvent extends DomainEvent
-{
 }

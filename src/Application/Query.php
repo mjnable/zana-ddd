@@ -4,49 +4,30 @@ declare(strict_types=1);
 
 namespace Zana\Ddd\Application;
 
+use Zana\Ddd\Domain\Uuid;
+
 /**
- * Base class for CQRS Queries.
- * 
- * Queries retrieve data without modifying state.
- * They never publish domain events or start transactions.
- * Multiple queries can share the same read model.
+ * Base class for CQRS queries: a request for data that changes nothing.
  */
 abstract class Query
 {
-    /**
-     * The unique query identifier for tracing.
-     */
-    protected string $queryId;
+    protected readonly string $queryId;
 
-    /**
-     * When the query was created.
-     */
-    protected \DateTimeImmutable $createdAt;
+    protected readonly \DateTimeImmutable $createdAt;
 
     public function __construct()
     {
-        $this->queryId = uniqid('qry-', true);
+        $this->queryId = Uuid::v7();
         $this->createdAt = new \DateTimeImmutable();
     }
 
-    /**
-     * Get the query identifier.
-     *
-     * @return string
-     */
     public function getQueryId(): string
     {
         return $this->queryId;
     }
 
-    /**
-     * Get when the query was created.
-     *
-     * @return \DateTimeImmutable
-     */
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
     }
 }
-

@@ -5,28 +5,22 @@ declare(strict_types=1);
 namespace Zana\Ddd\Domain;
 
 /**
- * Base class for Value Objects.
- * 
- * Value Objects are immutable, have no identity, and are compared by value.
- * Equality is based on all properties being equal.
+ * Base class for value objects: immutable, without identity, compared by value.
+ *
+ * The class is readonly, so every subclass must be declared `readonly` too.
+ * Equality compares the class and getEqualityValues(), which defaults to every
+ * property.
  */
-abstract class ValueObject
+abstract readonly class ValueObject
 {
-    /**
-     * Compare two Value Objects for equality.
-     *
-     * @param self $other
-     * @return bool
-     */
     public function equals(self $other): bool
     {
-        return get_class($this) === get_class($other)
-            && $this->getEqualityValues() === $other->getEqualityValues();
+        return static::class === $other::class
+            && self::same($this->getEqualityValues(), $other->getEqualityValues());
     }
 
     /**
-     * Get the values used for equality comparison.
-     * Override in child classes when the default property comparison is not appropriate.
+     * Values compared by equals(). Override when some properties must not count.
      *
      * @return array<string, mixed>
      */
@@ -36,26 +30,36 @@ abstract class ValueObject
     }
 
     /**
-     * Create a new instance with modified properties.
-     * Maintains immutability by returning a new instance.
-     *
-     * @param array<string, mixed> $data Properties to change
-     * @return static
+     * Strict comparison, except that nested value objects and identities use
+     * their own equals() and other objects compare by state.
      */
-    public function with(array $data): static
+    private static function same(mixed $a, mixed $b): bool
     {
-        $clone = clone $this;
-        foreach ($data as $property => $value) {
-            $clone->{$property} = $value;
+        if ($a instanceof self && $b instanceof self) {
+            return $a->equals($b);
         }
-        return $clone;
-    }
 
-    /**
-     * Prevent cloning from modifying the original.
-     */
-    protected function __clone()
-    {
+        if ($a instanceof Identity && $b instanceof Identity) {
+            return $a->equals($b);
+        }
+
+        if (is_array($a) && is_array($b)) {
+            if (array_keys($a) !== array_keys($b)) {
+                return false;
+            }
+            foreach ($a as $key => $value) {
+                if (!self::same($value, $b[$key])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if (is_object($a) && is_object($b)) {
+            return $a::class === $b::class && $a == $b;
+        }
+
+        return $a === $b;
     }
 }
-
